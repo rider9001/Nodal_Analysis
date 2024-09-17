@@ -8,6 +8,7 @@
 #pragma once
 
 #include <stdexcept>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <cstring>
@@ -469,7 +470,7 @@ class Matrix
         /// @brief Calculates the adjoint matrix
         ///
         /// @returns the adjoint matrix of the matrix
-        Matrix<T> adjoint()
+        Matrix<T> adjoint() const
         {
             Matrix<T> outMat(m_rows, m_cols);
 
@@ -488,10 +489,15 @@ class Matrix
         /// @brief Calculate the inverse matrix
         ///
         /// @return the inverse matrix
-        Matrix<T> inverse()
+        Matrix<T> inverse() const
         {
+            if (m_cols == 1 and m_rows == 1)
+            {
+                return reciprocal();
+            }
+
             T det = determinant();
-            if (det == 0)
+            if (det == (T)0)
             {
                 throw std::invalid_argument("Matrix determinant is zero, no inverse exists");
             }
@@ -503,7 +509,7 @@ class Matrix
         /// @brief Returns a matrix with each value of the input reciprocated
         ///
         /// @return reciprocated matrix
-        Matrix<T> reciprocal()
+        Matrix<T> reciprocal() const
         {
             Matrix<T> outMat(m_rows, m_cols);
 

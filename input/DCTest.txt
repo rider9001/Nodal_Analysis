@@ -1,0 +1,15 @@
+// comments are made using '//'
+// first uncommented line should be the net names, 'GND' is the reserved name for ground
+// all lines should be written using space seperation
+V1 V2 V3
+// all component commands should be written in the following form:
+// [component symbol {'I','V','R','L','C'}] [component value] [node 1] [node 2]
+
+// Current sources are always pointing into node 1, away from node 2
+I 5 V1 GND
+I 2 V3 GND
+
+R 10 V1 V2
+R 20 V1 V3
+R 40 V2 V3
+R 50 V2 GND

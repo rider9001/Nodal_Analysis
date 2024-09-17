@@ -1,0 +1,4 @@
+V1
+
+I 1 V1 GND
+R 5 V1 GND
