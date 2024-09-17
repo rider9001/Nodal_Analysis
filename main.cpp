@@ -15,25 +15,50 @@ using std::endl;
 
 int main(int argc, char *argv[])
 {
-    if (argc != 2)
+    if (argc != 3)
     {
-        cout << "Arguments: filepath" << endl;
+        cout << "Arguments: [type A/D] [filepath]" << endl;
         return EXIT_FAILURE;
     }
 
-    std::string inpFile(argv[1]);
+    std::string inpFile(argv[2]);
 
-    Nodal_Analysis_DC_t analysis = readDCAnalysisFile(inpFile);
+    std::string anaylsis_type(argv[1]);
 
-    cout << "Addmitance mat: " << endl << analysis.conductance_mat << endl;
-    cout << "Net currents: " << endl << analysis.net_currents << endl;
-
-    auto results = DCNodalAnalysis(analysis);
-
-    cout << "Voltages:" << endl;
-    for (auto res : results)
+    if (anaylsis_type == "A")
     {
-        cout << res.first << ": " << res.second << endl;
+        Nodal_Analysis_AC_t analysis = readACAnalysisFile(inpFile);
+
+        cout << "Addmitance mat: " << endl << analysis.admittance_mat << endl;
+        cout << "Net currents: " << endl << analysis.net_currents << endl;
+
+        auto results = ACNodalAnalysis(analysis);
+
+        cout << "Voltages:" << endl;
+        for (auto res : results)
+        {
+            cout << res.first << ": " << res.second << endl;
+        }
+    }
+    else if (anaylsis_type == "D")
+    {
+        Nodal_Analysis_DC_t analysis = readDCAnalysisFile(inpFile);
+
+        cout << "Addmitance mat: " << endl << analysis.conductance_mat << endl;
+        cout << "Net currents: " << endl << analysis.net_currents << endl;
+
+        auto results = DCNodalAnalysis(analysis);
+
+        cout << "Voltages:" << endl;
+        for (auto res : results)
+        {
+            cout << res.first << ": " << res.second << endl;
+        }
+    }
+    else
+    {
+        cout << "Unknown analysis type: " + anaylsis_type << endl;
+        return EXIT_FAILURE;
     }
 
     return EXIT_SUCCESS;

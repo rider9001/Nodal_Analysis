@@ -1,0 +1,10 @@
+// Test of a RC low pass filter
+Vin Vo
+// second uncommented line should be frequency
+500
+
+// AC current sources are in the form [mag],[phase], phase in radians
+I 3,1.5 Vin GND
+// RC filter should have cutoff at ~490Hz
+R 0.005 Vin Vo
+C 0.065 Vo GND

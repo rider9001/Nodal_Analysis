@@ -88,9 +88,45 @@ std::vector<std::pair<std::string, Complex_P_t>> ACNodalAnalysis(const Nodal_Ana
 std::vector<std::string> split(const std::string& str, const char& delim);
 
 ///--------------------------------------------------------
+/// @brief Parses a text file into a vector, blanking any comment lines
+///
+/// @param filename name of file to parse
+///
+/// @return parsed file contents
+std::vector<std::string> parseTextContent(const std::string& filename);
+
+///--------------------------------------------------------
 /// @brief Reads a DC analysis file and compiles components into a conductance/net current matrix
 ///
 /// @param filename local path of file to read
 ///
 /// @return Compiled DC nodal analysis data
 Nodal_Analysis_DC_t readDCAnalysisFile(const std::string& filename);
+
+///--------------------------------------------------------
+/// @brief Reads a DC analysis file and compiles components into a conductance/net current matrix
+///
+/// @param filename local path of file to read
+///
+/// @return Compiled AC nodal analysis data
+Nodal_Analysis_AC_t readACAnalysisFile(const std::string& filename);
+
+///--------------------------------------------------------
+/// @brief Decodes a phasor from a string in the form [mag],[phase]
+///
+/// @param phasorStr string containing phasor in form
+///
+/// @return complex phasor
+Complex_P_t decodePhasor(const std::string& phasorStr);
+
+///--------------------------------------------------------
+/// @brief Adds a given admittance to the admittance matrix given in mat
+///
+/// @tparam T type of admittance (pure real, complex)
+///
+/// @param mat matrix to add admittance to
+/// @param admittance admittance to add
+/// @param node1 node 1 of the connected component, -1 indicates ground
+/// @param node2 node 2 of the connected component
+template <typename T>
+void addAdmittance(const Matrix<T>& mat, const T& admittance, const int& node1, const int& node2);

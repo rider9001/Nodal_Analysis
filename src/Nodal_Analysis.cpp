@@ -48,7 +48,7 @@ std::vector<std::string> split(const std::string& str, const char& delim)
 }
 
 ///--------------------------------------------------------
-Nodal_Analysis_DC_t readDCAnalysisFile(const std::string& filename)
+std::vector<std::string> parseTextContent(const std::string& filename)
 {
     std::ifstream file(filename);
     std::vector<std::string> fileLines;
@@ -70,6 +70,45 @@ Nodal_Analysis_DC_t readDCAnalysisFile(const std::string& filename)
         }
     }
 
+    return fileLines;
+}
+
+///--------------------------------------------------------
+template<typename T>
+void addAdmittance(Matrix<T>& mat, const T& admittance, const int& node1, const int& node2)
+{
+    if (node1 != -1)
+    {
+        T newVal = mat.get(node1, node1) + admittance;
+        mat.set(node1, node1, newVal);
+
+        // apply negative to col of opposite node if not ground
+        if (node2 != -1)
+        {
+            newVal = mat.get(node1, node2) - admittance;
+            mat.set(node1, node2, newVal);
+        }
+    }
+
+    if (node2 != -1)
+    {
+        T newVal = mat.get(node2, node2) + admittance;
+        mat.set(node2, node2, newVal);
+
+        // apply negative to col of opposite node if not ground
+        if (node1 != -1)
+        {
+            newVal = mat.get(node2, node1) - admittance;
+            mat.set(node2, node1, newVal);
+        }
+    }
+}
+
+///--------------------------------------------------------
+Nodal_Analysis_DC_t readDCAnalysisFile(const std::string& filename)
+{
+    std::vector<std::string> fileLines = parseTextContent(filename);
+
     auto it = std::find_if_not(fileLines.begin(), fileLines.end(),
                 [](const std::string& x) { return x.empty();});
     if (it == fileLines.end())
@@ -81,7 +120,7 @@ Nodal_Analysis_DC_t readDCAnalysisFile(const std::string& filename)
     std::vector<std::string> node_names = split(fileLines.at(std::distance(fileLines.begin(), it)), ' ');
     if (std::find(node_names.begin(), node_names.end(), ground_node_name) != node_names.end())
     {
-        throw std::invalid_argument("GND is a reserved nodename and cannot be in the node list");
+        throw std::invalid_argument("GND is a reserved node name and cannot be in the node list");
     }
 
     Nodal_Analysis_DC_t analysis{
@@ -105,13 +144,13 @@ Nodal_Analysis_DC_t readDCAnalysisFile(const std::string& filename)
 
         if (lineSplit.size() != 4)
         {
-            throw std::invalid_argument("Bad component command (line " + std::to_string(i) + ")");
+            throw std::invalid_argument("Bad component command (line " + std::to_string(i+1) + ")");
         }
 
         if (lineSplit.at(0).size() != 1 or
             std::find(valid_component_symbols.begin(), valid_component_symbols.end(), lineSplit.at(0)[0]) == valid_component_symbols.end())
         {
-            throw std::invalid_argument("Symbol: " + lineSplit.at(0) + " is not a valid symbol {I,V,R,L,C} (line " + std::to_string(i)+ ")");
+            throw std::invalid_argument("Symbol: " + lineSplit.at(0) + " is not a valid symbol {I,V,R,L,C} (line " + std::to_string(i+1)+ ")");
         }
 
         char symbol = lineSplit.at(0)[0];
@@ -121,7 +160,7 @@ Nodal_Analysis_DC_t readDCAnalysisFile(const std::string& filename)
 
         if (symbol == 'L' or symbol == 'C')
         {
-            throw std::invalid_argument("Symbol: " + std::to_string(symbol) + " is not allowed in DC analysis {I,V,R} (line " + std::to_string(i) + ")");
+            throw std::invalid_argument("Symbol: " + std::to_string(symbol) + " is not allowed in DC analysis {I,V,R} (line " + std::to_string(i+1) + ")");
         }
 
         // If first node is groud on a direction agnostic component, swap nodes to make sure calculation in correct magnitude
@@ -141,7 +180,7 @@ Nodal_Analysis_DC_t readDCAnalysisFile(const std::string& filename)
             if (it == node_names.end())
             {
                 throw std::invalid_argument("Node name: " + nodes_connected.first +
-                " is not found in the initial node name delcaration (line " + std::to_string(i) + ")");
+                " is not found in the initial node name delcaration (line " + std::to_string(i+1) + ")");
             }
 
             node_idx_1 = std::distance(node_names.begin(), it);
@@ -157,7 +196,7 @@ Nodal_Analysis_DC_t readDCAnalysisFile(const std::string& filename)
             if (it == node_names.end())
             {
                 throw std::invalid_argument("Node name: " + nodes_connected.first +
-                " is not found in the initial node name delcaration (line " + std::to_string(i) + ")");
+                " is not found in the initial node name delcaration (line " + std::to_string(i+1) + ")");
             }
 
             node_idx_2 = std::distance(node_names.begin(), it);
@@ -187,34 +226,183 @@ Nodal_Analysis_DC_t readDCAnalysisFile(const std::string& filename)
 
             case 'R':
                 // 1 / magnitude is conductance
-                if (node_idx_1 != -1)
-                {
-                    double newVal = analysis.conductance_mat.get(node_idx_1, node_idx_1) + (1 / magnitude);
-                    analysis.conductance_mat.set(node_idx_1, node_idx_1, newVal);
-
-                    // apply negative to col of opposite node if not ground
-                    if (node_idx_2 != -1)
-                    {
-                        newVal = analysis.conductance_mat.get(node_idx_1, node_idx_2) - (1 / magnitude);
-                        analysis.conductance_mat.set(node_idx_1, node_idx_2, newVal);
-                    }
-                }
-
-                if (node_idx_2 != -1)
-                {
-                    double newVal = analysis.conductance_mat.get(node_idx_2, node_idx_2) + (1 / magnitude);
-                    analysis.conductance_mat.set(node_idx_2, node_idx_2, newVal);
-
-                    // apply negative to col of opposite node if not ground
-                    if (node_idx_1 != -1)
-                    {
-                        newVal = analysis.conductance_mat.get(node_idx_2, node_idx_1) - (1 / magnitude);
-                        analysis.conductance_mat.set(node_idx_2, node_idx_1, newVal);
-                    }
-                }
+                addAdmittance<double>(analysis.conductance_mat, (1/magnitude), node_idx_1, node_idx_2);
                 break;
         }
     }
 
     return analysis;
+}
+
+///--------------------------------------------------------
+Nodal_Analysis_AC_t readACAnalysisFile(const std::string& filename)
+{
+    std::vector<std::string> fileLines = parseTextContent(filename);
+
+    auto it = std::find_if_not(fileLines.begin(), fileLines.end(),
+                [](const std::string& x) { return x.empty();});
+    if (it == fileLines.end())
+    {
+        throw std::invalid_argument("File has no content");
+    }
+
+    // First non-empty line should be a space-seperated list of the names of all nodes
+    std::vector<std::string> node_names = split(fileLines.at(std::distance(fileLines.begin(), it)), ' ');
+    if (std::find(node_names.begin(), node_names.end(), ground_node_name) != node_names.end())
+    {
+        throw std::invalid_argument("GND is a reserved node name and cannot be in the node list");
+    }
+
+    double freq = -1;
+    // second non empty line has the frequency
+    it = std::find_if_not(++it, fileLines.end(),
+                [](const std::string& x) { return x.empty();});
+    if (it == fileLines.end())
+    {
+        throw std::invalid_argument("Frequnecy should be stated on line after netnames");
+    }
+    freq = stod(fileLines.at(std::distance(fileLines.begin(), it)));
+
+    if (freq <= 0)
+    {
+        throw std::invalid_argument("Freq must be greater than 0");
+    }
+
+    Nodal_Analysis_AC_t analysis{
+        node_names,
+        Matrix<Complex_P_t>(node_names.size(), node_names.size()),
+        Matrix<Complex_P_t>(node_names.size(), 1)
+        };
+
+    // Start at the first line after the net names and freq (+2)
+    for (size_t i = std::distance(fileLines.begin(), it) + 2; i < fileLines.size(); i++)
+    {
+        // skip empty lines
+        if (fileLines.at(i).empty())
+        {
+            continue;
+        }
+
+        // Each line should be in the following form, phase only used on voltage/current sources:
+        // [Symbol char] [component magnitude,phase] [Node1] [Node2]
+        auto lineSplit = split(fileLines.at(i), ' ');
+
+        if (lineSplit.size() != 4)
+        {
+            throw std::invalid_argument("Bad component command (line " + std::to_string(i+1) + ")");
+        }
+
+        if (lineSplit.at(0).size() != 1 or
+            std::find(valid_component_symbols.begin(), valid_component_symbols.end(), lineSplit.at(0)[0]) == valid_component_symbols.end())
+        {
+            throw std::invalid_argument("Symbol: " + lineSplit.at(0) + " is not a valid symbol {I,V,R,L,C} (line " + std::to_string(i+1)+ ")");
+        }
+
+        char symbol = lineSplit.at(0)[0];
+        std::pair<std::string, std::string> nodes_connected{lineSplit.at(2), lineSplit.at(3)};
+
+        // If first node is groud on a direction agnostic component, swap nodes to make sure calculation in correct magnitude
+        if (symbol == 'R' and nodes_connected.first == ground_node_name)
+        {
+            swap(nodes_connected.first, nodes_connected.second);
+        }
+
+        int node_idx_1, node_idx_2;
+        if (nodes_connected.first == ground_node_name)
+        {
+            node_idx_1 = -1;
+        }
+        else
+        {
+            auto it = std::find(node_names.begin(), node_names.end(), nodes_connected.first);
+            if (it == node_names.end())
+            {
+                throw std::invalid_argument("Node name: " + nodes_connected.first +
+                " is not found in the initial node name delcaration (line " + std::to_string(i+1) + ")");
+            }
+
+            node_idx_1 = std::distance(node_names.begin(), it);
+        }
+
+        if (nodes_connected.second == ground_node_name)
+        {
+            node_idx_2 = -1;
+        }
+        else
+        {
+            auto it = std::find(node_names.begin(), node_names.end(), nodes_connected.second);
+            if (it == node_names.end())
+            {
+                throw std::invalid_argument("Node name: " + nodes_connected.first +
+                " is not found in the initial node name delcaration (line " + std::to_string(i+1) + ")");
+            }
+
+            node_idx_2 = std::distance(node_names.begin(), it);
+        }
+
+        if (symbol == 'I')
+        {
+            // set the net current values for both node columns in the net currents matrix
+            // only if the node is not ground
+            Complex_P_t phasor = decodePhasor(lineSplit.at(1));
+
+            if (node_idx_1 != -1)
+            {
+                Complex_P_t newVal = analysis.net_currents.get(node_idx_1, 0) + phasor;
+                analysis.net_currents.set(node_idx_1, 0, newVal);
+            }
+
+            if (node_idx_2 != -1)
+            {
+                Complex_P_t newVal = analysis.net_currents.get(node_idx_2, 0) - phasor;
+                analysis.net_currents.set(node_idx_2, 0, newVal);
+            }
+        }
+        else if (symbol == 'V')
+        {
+            throw std::invalid_argument("V is not implemented yet");
+        }
+        else if (symbol == 'R')
+        {
+            // 1 / magnitude is addmittance
+            Complex_P_t res_admittance{1 / stod(lineSplit.at(1)), 0};
+            addAdmittance<Complex_P_t>(analysis.admittance_mat, res_admittance, node_idx_1, node_idx_2);
+        }
+        else if (symbol == 'C')
+        {
+            Complex_C_t cap_admittance{0, 2 * M_PI * freq * stod(lineSplit.at(1))};
+            addAdmittance<Complex_P_t>(analysis.admittance_mat, cartToPolar(cap_admittance), node_idx_1, node_idx_2);
+        }
+        else if (symbol == 'L')
+        {
+            Complex_C_t ind_admittance{0, 1 / (2 * M_PI * freq * stod(lineSplit.at(1)))};
+            addAdmittance<Complex_P_t>(analysis.admittance_mat, cartToPolar(ind_admittance), node_idx_1, node_idx_2);
+        }
+        else
+        {
+            // should be caught by prevoius check, but keeping this here for completeness
+            throw std::invalid_argument("Unkwon symbol: " + std::to_string(symbol));
+        }
+    }
+
+    return analysis;
+}
+
+///--------------------------------------------------------
+Complex_P_t decodePhasor(const std::string& phasorStr)
+{
+    std::vector<std::string> phasorSplit = split(phasorStr, ',');
+
+    if (phasorSplit.size() == 1)
+    {
+        return Complex_P_t{stod(phasorSplit.at(0))};
+    }
+    else if (phasorSplit.size() == 2)
+    {
+        return Complex_P_t{stod(phasorSplit.at(0)), stod(phasorSplit.at(1))};
+    }
+    else
+    {
+        std::invalid_argument(phasorStr + " is not a valid phasor");
+    }
 }
