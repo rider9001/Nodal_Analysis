@@ -130,3 +130,12 @@ Complex_P_t decodePhasor(const std::string& phasorStr);
 /// @param node2 node 2 of the connected component
 template <typename T>
 void addAdmittance(const Matrix<T>& mat, const T& admittance, const int& node1, const int& node2);
+
+///--------------------------------------------------------
+/// @brief Converts a component value string into a double value
+/// e.g: 20k -> 20,000, 10m -> 0.001
+///
+/// @param comp string to convert to value
+///
+/// @return resoved value of the component string
+double convertCompToValue(const std::string& comp);

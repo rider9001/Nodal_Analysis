@@ -155,7 +155,7 @@ Nodal_Analysis_DC_t readDCAnalysisFile(const std::string& filename)
 
         char symbol = lineSplit.at(0)[0];
         // Write conversion for 10k -> 10,000 etc
-        double magnitude = stod(lineSplit.at(1));
+        double magnitude = convertCompToValue(lineSplit.at(1));
         std::pair<std::string, std::string> nodes_connected{lineSplit.at(2), lineSplit.at(3)};
 
         if (symbol == 'L' or symbol == 'C')
@@ -261,7 +261,7 @@ Nodal_Analysis_AC_t readACAnalysisFile(const std::string& filename)
     {
         throw std::invalid_argument("Frequnecy should be stated on line after netnames");
     }
-    freq = stod(fileLines.at(std::distance(fileLines.begin(), it)));
+    freq = convertCompToValue(fileLines.at(std::distance(fileLines.begin(), it)));
 
     if (freq <= 0)
     {
@@ -365,17 +365,17 @@ Nodal_Analysis_AC_t readACAnalysisFile(const std::string& filename)
         else if (symbol == 'R')
         {
             // 1 / magnitude is addmittance
-            Complex_P_t res_admittance{1 / stod(lineSplit.at(1)), 0};
+            Complex_P_t res_admittance{1 / convertCompToValue(lineSplit.at(1)), 0};
             addAdmittance<Complex_P_t>(analysis.admittance_mat, res_admittance, node_idx_1, node_idx_2);
         }
         else if (symbol == 'C')
         {
-            Complex_C_t cap_admittance{0, 2 * M_PI * freq * stod(lineSplit.at(1))};
+            Complex_C_t cap_admittance{0, 2 * M_PI * freq * convertCompToValue(lineSplit.at(1))};
             addAdmittance<Complex_P_t>(analysis.admittance_mat, cartToPolar(cap_admittance), node_idx_1, node_idx_2);
         }
         else if (symbol == 'L')
         {
-            Complex_C_t ind_admittance{0, 1 / (2 * M_PI * freq * stod(lineSplit.at(1)))};
+            Complex_C_t ind_admittance{0, 1 / (2 * M_PI * freq * convertCompToValue(lineSplit.at(1)))};
             addAdmittance<Complex_P_t>(analysis.admittance_mat, cartToPolar(ind_admittance), node_idx_1, node_idx_2);
         }
         else
@@ -395,14 +395,84 @@ Complex_P_t decodePhasor(const std::string& phasorStr)
 
     if (phasorSplit.size() == 1)
     {
-        return Complex_P_t{stod(phasorSplit.at(0))};
+        return Complex_P_t{convertCompToValue(phasorSplit.at(0))};
     }
     else if (phasorSplit.size() == 2)
     {
-        return Complex_P_t{stod(phasorSplit.at(0)), stod(phasorSplit.at(1))};
+        return Complex_P_t{convertCompToValue(phasorSplit.at(0)), convertCompToValue(phasorSplit.at(1))};
     }
     else
     {
-        std::invalid_argument(phasorStr + " is not a valid phasor");
+        throw std::invalid_argument(phasorStr + " is not a valid phasor");
+    }
+}
+
+///--------------------------------------------------------
+double convertCompToValue(const std::string& comp)
+{
+    std::string workingComp = comp;
+    // remove all whitespace
+    size_t first_non_space = workingComp.find_first_not_of(whitespace);
+    workingComp.erase(0, first_non_space);
+
+    size_t last_non_space = workingComp.find_last_not_of(whitespace);
+    workingComp.erase(last_non_space + 1);
+
+    // extract multipler from string
+    char last = workingComp.at(workingComp.size() - 1);
+
+    if (isdigit(last))
+    {
+        return stod(workingComp);
+    }
+
+    // extract number from string
+    workingComp = workingComp.substr(0, workingComp.size() - 1);
+
+    // Check that rest of component value is completely numeric
+    for (char c : workingComp)
+    {
+        // Decimal place dot is only allowed char
+        if (!isdigit(c) and c != '.')
+        {
+            throw std::invalid_argument("Only one modifier may be used on a component value: " + comp);
+        }
+    }
+
+    double num = stod(workingComp);
+
+    switch(last)
+    {
+        case 'p':
+            // Pico
+            return num * pow(10, -12);
+
+        case 'n':
+            // Nano
+            return num * pow(10, -9);
+
+        case 'u':
+            // Micro
+            return num * pow(10, -6);
+
+        case 'm':
+            // Milli
+            return num * pow(10, -3);
+
+        case 'k':
+            // Kilo
+            return num * pow(10, 3);
+
+        case 'M':
+            // Mega
+            return num * pow(10, 6);
+
+        case 'G':
+            // Giga
+            return num * pow(10, 9);
+
+        default:
+            // unrecognized multiplier
+            throw std::invalid_argument(comp + " cannot be evaluated, " + last + " is not a recognized multiplier.");
     }
 }
